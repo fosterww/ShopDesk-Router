@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 from sqlalchemy import text
@@ -35,7 +35,7 @@ async def upsert_message(
             "body_text": body_text,
         },
     )
-    return result.scalar_one()
+    return str(result.scalar_one())
 
 
 async def insert_event(
@@ -62,7 +62,7 @@ async def insert_event(
 
 
 async def insert_attachments(
-    session: AsyncSession, message_id: str, atts: List[Dict]
+    session: AsyncSession, message_id: str, atts: List[Dict[str, Any]]
 ) -> List[str]:
     rows = [
         {
@@ -84,4 +84,4 @@ async def insert_attachments(
         ),
         rows,
     )
-    return [row[0] for row in result.fetchall()]
+    return [str(row[0]) for row in result.fetchall()]

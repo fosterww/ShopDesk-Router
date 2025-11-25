@@ -1,5 +1,8 @@
+from typing import Any, List
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     app_env: str = "dev"
@@ -28,12 +31,12 @@ class Settings(BaseSettings):
 
     @field_validator("gmail_label_ids", mode="before")
     @classmethod
-    def split_gmail_labels(cls, v):
+    def split_gmail_labels(cls, v: Any) -> List[str]:
         if v in (None, "", [], ()):
             return []
         if isinstance(v, str):
             return [p.strip() for p in v.split(",") if p.strip()]
-        return v
+        return list(v)
 
     model_config = SettingsConfigDict(
         env_file=".env",

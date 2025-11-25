@@ -1,5 +1,7 @@
 from __future__ import annotations
 import hashlib
+from typing import Any, Dict, Optional
+
 import aioboto3
 from botocore.exceptions import ClientError
 from api.app.config import settings
@@ -7,7 +9,7 @@ from api.app.config import settings
 session = aioboto3.Session()
 
 
-def _client():
+def _client() -> Any:
     return session.client(
         "s3",
         endpoint_url=settings.s3_endpoint,
@@ -35,7 +37,9 @@ def hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-async def put_bytes(data: bytes, mime: str, filename: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> str:
+async def put_bytes(
+    data: bytes, mime: str, filename: str, bucket: str = S3_BUCKET_ATTACHMENTS
+) -> str:
     await ensure_bucket(bucket)
     key = f"{hash_bytes(data)[:8]}/{filename}"
     async with _client() as s3:
@@ -45,17 +49,19 @@ async def put_bytes(data: bytes, mime: str, filename: str, bucket: str = S3_BUCK
 
 async def presign(key: str, ttl_seconds: int = 600, bucket: str = S3_BUCKET_ATTACHMENTS) -> str:
     async with _client() as s3:
-        return await s3.generate_presigned_url(
+        url = await s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": key},
             ExpiresIn=ttl_seconds,
         )
+    return str(url)
 
 
-async def head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> dict | None:
+async def head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optional[Dict[str, Any]]:
     async with _client() as s3:
         try:
-            return await s3.head_object(Bucket=bucket, Key=key)
+            resp: Dict[str, Any] = await s3.head_object(Bucket=bucket, Key=key)
+            return resp
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") == "404":
                 return None

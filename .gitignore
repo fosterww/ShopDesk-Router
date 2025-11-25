@@ -13,3 +13,5 @@ htmlcov/
 *.db
 *.log
 __dist__/
+.vscode/
+gmail-service-account.json

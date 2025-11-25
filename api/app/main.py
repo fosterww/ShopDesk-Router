@@ -1,7 +1,20 @@
 from fastapi import FastAPI
-from api.app.config import settings
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="ShopDesk Router API", version="0.0.1")
+from api.app.config import settings
+from common.storage.s3 import ensure_bucket
+from api.app.routers.ingest import router as ingest_router
+from api.app.routers.attachments import router as attachments_router
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await ensure_bucket()
+    yield
+
+app = FastAPI(lifespan=lifespan, title="ShopDesk Router API", version="0.0.1")
+
+app.include_router(ingest_router)
+app.include_router(attachments_router)
 
 @app.get("/health")
 def health():

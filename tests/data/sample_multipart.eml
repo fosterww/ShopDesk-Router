@@ -1,0 +1,46 @@
+From: Sender <sender@example.com>
+To: Receiver <receiver@example.com>
+Subject: Test email with attachments
+Message-ID: <sample-message-id@example.com>
+Date: Mon, 22 Nov 2025 12:34:56 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mixed-boundary"
+
+--mixed-boundary
+Content-Type: text/plain; charset="utf-8"
+
+Hello plain body.
+
+--mixed-boundary
+Content-Type: multipart/related; boundary="related-boundary"
+
+--related-boundary
+Content-Type: text/html; charset="utf-8"
+
+<html><body><p>Hello HTML body.</p><img src="cid:image1"></body></html>
+
+--related-boundary
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <image1>
+Content-Disposition: inline; filename="inline.png"
+
+iVBORw0KGgo=
+
+--related-boundary--
+
+--mixed-boundary
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="sample.pdf"
+
+JVBERi0xLjQKMSAwIG9iajw8Pj4KZW5kb2JqCnRyYWlsZXIKPDw+Pj4KJSVFT0YK
+
+--mixed-boundary
+Content-Type: audio/ogg
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="sound.ogg"
+
+T2dnU2R1bW15
+
+--mixed-boundary--

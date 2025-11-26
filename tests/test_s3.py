@@ -3,35 +3,31 @@ import uuid
 
 import pytest
 
-from common.storage.s3 import (
-    put_bytes,
-    presign,
-    head_object,
-    ensure_bucket,
-    S3_BUCKET_ATTACHMENTS,
-)
+from common.storage.s3 import AttachmentStorage
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_minio_bucket():
+@pytest.fixture(scope="session")
+def s3_storage():
+    s3 = AttachmentStorage()
     try:
-        asyncio.run(ensure_bucket(S3_BUCKET_ATTACHMENTS))
+        asyncio.run(s3.ensure_bucket())
     except Exception as exc:
         pytest.skip(f"MinIO is not reachable for S3 tests: {exc}")
+    return s3
 
 
-def test_put_and_head_object(ensure_minio_bucket):
+def test_put_and_head_object(s3_storage: AttachmentStorage):
     async def _run():
         data = b"hello shopdesk"
         filename = f"test-{uuid.uuid4().hex}.txt"
         mime = "text/plain"
 
-        key = await put_bytes(data=data, mime=mime, filename=filename)
+        key = await s3_storage.put(data=data, mime=mime, filename=filename)
 
         assert isinstance(key, str)
         assert len(key) > 0
 
-        meta = await head_object(key)
+        meta = await s3_storage.head(key)
         assert meta is not None
         assert meta["ContentLength"] == len(data)
         assert meta["ContentType"] == mime
@@ -39,15 +35,15 @@ def test_put_and_head_object(ensure_minio_bucket):
     asyncio.run(_run())
 
 
-def test_presign_contains_key(ensure_minio_bucket):
+def test_presign_contains_key(s3_storage: AttachmentStorage):
     async def _run():
         data = b"another test file"
         filename = f"test-{uuid.uuid4().hex}.bin"
         mime = "application/octet-stream"
 
-        key = await put_bytes(data=data, mime=mime, filename=filename)
+        key = await s3_storage.put(data=data, mime=mime, filename=filename)
 
-        url = await presign(key, ttl_seconds=600)
+        url = await s3_storage.presign(key, ttl_seconds=600)
 
         assert isinstance(url, str)
         assert len(url) > 0
@@ -56,14 +52,14 @@ def test_presign_contains_key(ensure_minio_bucket):
     asyncio.run(_run())
 
 
-def test_same_bytes_same_key(ensure_minio_bucket):
+def test_same_bytes_same_key(s3_storage: AttachmentStorage):
     async def _run():
         data = b"stable-content"
         filename = "stable-file.txt"
         mime = "text/plain"
 
-        key1 = await put_bytes(data=data, mime=mime, filename=filename)
-        key2 = await put_bytes(data=data, mime=mime, filename=filename)
+        key1 = await s3_storage.put(data=data, mime=mime, filename=filename)
+        key2 = await s3_storage.put(data=data, mime=mime, filename=filename)
 
         assert key1 == key2
 

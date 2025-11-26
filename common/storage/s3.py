@@ -66,3 +66,20 @@ async def head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optional
             if exc.response.get("Error", {}).get("Code") == "404":
                 return None
             raise
+
+
+class AttachmentStorage:
+    def __init__(self, bucket: str = S3_BUCKET_ATTACHMENTS) -> None:
+        self.bucket = bucket
+
+    async def ensure_bucket(self) -> None:
+        await ensure_bucket(self.bucket)
+
+    async def put(self, data: bytes, mime: str, filename: str) -> str:
+        return await put_bytes(data=data, mime=mime, filename=filename, bucket=self.bucket)
+
+    async def presign(self, key: str, ttl_seconds: int = 600) -> str:
+        return await presign(key=key, ttl_seconds=ttl_seconds, bucket=self.bucket)
+
+    async def head(self, key: str) -> Optional[Dict[str, Any]]:
+        return await head_object(key=key, bucket=self.bucket)

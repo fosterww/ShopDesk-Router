@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from worker.celery_app import app
 from common.clients.gmail_client import GmailClient
 from common.ingest.email_parser import parse_email
-from common.storage.s3 import put_bytes
+from common.storage.s3 import AttachmentStorage
 from api.app.config import settings
 from api.app.db import SessionLocal
-from common.db.dao import upsert_message, insert_event, insert_attachments
+from common.db.dao import MessageRepository
 
 LOG = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def _load_gmail_creds() -> Credentials:
     default_retry_delay=10,
 )
 
-async def poll_gmail(self, newest_n: int = 25):
+def poll_gmail(self, newest_n: int = 25):
     try:
         asyncio.run(_poll_gmail_async(newest_n=newest_n))
     except Exception as e:
@@ -50,11 +50,13 @@ async def _poll_gmail_async(newest_n: int = 25):
     LOG.info("Gmail poll: %s messages", len(message_ids))
 
     async with SessionLocal() as session:
+        repo = MessageRepository(session)
         for mid in message_ids:
-            await _process_message(mid, client, session)
+            await _process_message(mid, client, repo, session)
 
 
-async def _process_message(mid: str, client: GmailClient, session: AsyncSession):
+async def _process_message(mid: str, client: GmailClient, repo: MessageRepository, session: AsyncSession):
+    s3 = AttachmentStorage()
     headers = client.get_headers(mid)
     raw = client.get_raw_message(mid)
 
@@ -83,7 +85,7 @@ async def _process_message(mid: str, client: GmailClient, session: AsyncSession)
         LOG.info("Skipping existing gmail message %s", external_id)
         return
 
-    message_id = await upsert_message(
+    message_id = await repo.upsert_message(
         session,
         source="gmail",
         external_id=external_id,
@@ -95,7 +97,7 @@ async def _process_message(mid: str, client: GmailClient, session: AsyncSession)
 
     uploaded = []
     for a in atts:
-        s3_key = await put_bytes(
+        s3_key = await s3.put(
             data=a["bytes"],
             mime=a["mime"],
             filename=a["filename"],
@@ -110,9 +112,9 @@ async def _process_message(mid: str, client: GmailClient, session: AsyncSession)
             }
         )
     if uploaded:
-        await insert_attachments(session, message_id, uploaded)
+        await repo.insert_attachments(session, message_id, uploaded)
 
-    await insert_event(
+    await repo.insert_event(
         session,
         ticket_id=None,
         message_id=message_id,

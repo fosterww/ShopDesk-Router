@@ -37,7 +37,7 @@ def hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-async def put_bytes(
+async def _put_bytes(
     data: bytes, mime: str, filename: str, bucket: str = S3_BUCKET_ATTACHMENTS
 ) -> str:
     await ensure_bucket(bucket)
@@ -47,7 +47,7 @@ async def put_bytes(
     return key
 
 
-async def presign(key: str, ttl_seconds: int = 600, bucket: str = S3_BUCKET_ATTACHMENTS) -> str:
+async def _presign(key: str, ttl_seconds: int = 600, bucket: str = S3_BUCKET_ATTACHMENTS) -> str:
     async with _client() as s3:
         url = await s3.generate_presigned_url(
             "get_object",
@@ -57,7 +57,7 @@ async def presign(key: str, ttl_seconds: int = 600, bucket: str = S3_BUCKET_ATTA
     return str(url)
 
 
-async def head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optional[Dict[str, Any]]:
+async def _head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optional[Dict[str, Any]]:
     async with _client() as s3:
         try:
             resp: Dict[str, Any] = await s3.head_object(Bucket=bucket, Key=key)
@@ -67,6 +67,16 @@ async def head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optional
                 return None
             raise
 
+async def _get_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Dict[str, Any]:
+    async with _client() as s3:
+        resp: Dict[str, Any] = await s3.get_object(Bucket=bucket, Key=key)
+        body: bytes = await resp["Body"].read()
+        return {
+            "data": body,
+            "mime": resp.get("ContentType"),
+            "content_length": resp.get("ContentLength"),
+            "etag": resp.get("ETag"),
+        }
 
 class AttachmentStorage:
     def __init__(self, bucket: str = S3_BUCKET_ATTACHMENTS) -> None:
@@ -76,10 +86,17 @@ class AttachmentStorage:
         await ensure_bucket(self.bucket)
 
     async def put(self, data: bytes, mime: str, filename: str) -> str:
-        return await put_bytes(data=data, mime=mime, filename=filename, bucket=self.bucket)
+        return await _put_bytes(data=data, mime=mime, filename=filename, bucket=self.bucket)
 
     async def presign(self, key: str, ttl_seconds: int = 600) -> str:
-        return await presign(key=key, ttl_seconds=ttl_seconds, bucket=self.bucket)
+        return await _presign(key=key, ttl_seconds=ttl_seconds, bucket=self.bucket)
 
     async def head(self, key: str) -> Optional[Dict[str, Any]]:
-        return await head_object(key=key, bucket=self.bucket)
+        return await _head_object(key=key, bucket=self.bucket)
+    
+    async def get(self, key: str) -> Dict[str, Any]:
+        return await _get_object(key=key, bucket=self.bucket)
+
+    async def get_bytes(self, key: str) -> bytes:
+        obj = await _get_object(key=key, bucket=self.bucket)
+        return obj["data"]

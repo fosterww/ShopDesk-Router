@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import json
 
 class MessageRepository:
     def __init__(self, session: AsyncSession):
@@ -59,7 +60,7 @@ class MessageRepository:
             {
                 "ticket_id": ticket_id,
                 "type": type_,
-                "payload": payload,
+                "payload": json.dumps(payload),
             },
         )
 

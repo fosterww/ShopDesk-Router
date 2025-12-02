@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Literal, Optional
 from datetime import date
 from decimal import Decimal
+
 
 class DocFields(BaseModel):
     order_id: Optional[str]
@@ -11,16 +12,16 @@ class DocFields(BaseModel):
     sku: Optional[str]
     confidence: dict[str, float] = {}
 
+
 class Classification(BaseModel):
-    label: Literal[
-        "refund", "not_received", "warranty",
-        "address_change", "how_to", "other"
-    ]
+    label: Literal["refund", "not_received", "warranty", "address_change", "how_to", "other"]
     scores: dict[str, float]
+
 
 class Transcript(BaseModel):
     text: str
     confidence: float
+
 
 class Summary(BaseModel):
     text: str

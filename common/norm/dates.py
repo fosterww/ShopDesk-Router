@@ -9,11 +9,12 @@ DATE_RE = re.compile(
     re.VERBOSE,
 )
 
+
 def parse_date_eu(raw: str) -> Optional[date]:
     m = DATE_RE.search(raw)
     if not m:
         return None
-    
+
     day = int(m.group("day"))
     month = int(m.group("month"))
     year = int(m.group("year"))

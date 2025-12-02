@@ -1,5 +1,3 @@
-from typing import Optional
-
 from .regexes import extract_amount_currency, extract_order_id, extract_sku
 from .amounts import normalize_amount, normalize_currency
 from .dates import parse_date_eu

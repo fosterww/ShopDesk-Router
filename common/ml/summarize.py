@@ -39,10 +39,9 @@ def summarize_sync(text: str, max_chars: int = 480) -> Summary:
     return Summary(text=out, tokens=len(out.split()))
 
 
-async def summarize(text: str, max_chars: int = 480) -> Summary:
+async def summarize(text: str, max_chars: int = 480):
     return await anyio.to_thread.run_sync(
         summarize_sync,
         text,
         max_chars,
     )
-

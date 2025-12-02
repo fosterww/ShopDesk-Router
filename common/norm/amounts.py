@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
+
 def normalize_amount(raw: str) -> Optional[Decimal]:
     if not raw:
         return None
@@ -18,7 +19,7 @@ def normalize_amount(raw: str) -> Optional[Decimal]:
         return Decimal(s)
     except InvalidOperation:
         return None
-    
+
 
 def normalize_currency(curr: str | None) -> Optional[str]:
     if not curr:

@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
+
 class NormalizedFields(BaseModel):
     order_id: Optional[str]
     amount: Optional[Decimal]

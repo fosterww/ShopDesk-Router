@@ -67,6 +67,7 @@ async def _head_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Optiona
                 return None
             raise
 
+
 async def _get_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Dict[str, Any]:
     async with _client() as s3:
         resp: Dict[str, Any] = await s3.get_object(Bucket=bucket, Key=key)
@@ -77,6 +78,7 @@ async def _get_object(key: str, bucket: str = S3_BUCKET_ATTACHMENTS) -> Dict[str
             "content_length": resp.get("ContentLength"),
             "etag": resp.get("ETag"),
         }
+
 
 class AttachmentStorage:
     def __init__(self, bucket: str = S3_BUCKET_ATTACHMENTS) -> None:
@@ -93,7 +95,7 @@ class AttachmentStorage:
 
     async def head(self, key: str) -> Optional[Dict[str, Any]]:
         return await _head_object(key=key, bucket=self.bucket)
-    
+
     async def get(self, key: str) -> Dict[str, Any]:
         return await _get_object(key=key, bucket=self.bucket)
 

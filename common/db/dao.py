@@ -55,15 +55,39 @@ class MessageRepository:
             text(
                 """
                 insert into events(ticket_id, type, payload, ts)
-                values (:ticket_id, :type, :payload::jsonb, now())
+                values (:ticket_id, :type, :payload, now())
                 """
             ),
             {
                 "ticket_id": ticket_id,
                 "type": type_,
-                "payload": json.dumps(payload),
+                "payload": json.dumps(payload, default=str),
             },
         )
+
+    async def get_last_event(self, *, message_id: str, type_: str) -> Optional[Dict[str, Any]]:
+        result = await self.session.execute(
+            text(
+                """
+                select payload
+                from events
+                where message_id = :message_id and type = :type
+                order by ts desc
+                limit 1
+                """
+            ),
+            {"message_id": message_id, "type": type_},
+        )
+        row = result.first()
+        if not row:
+            return None
+        payload = row[0]
+        if isinstance(payload, str):
+            try:
+                return json.loads(payload)
+            except json.JSONDecodeError:
+                return None
+        return payload
 
     async def insert_attachments(self, message_id: str, atts: List[Dict[str, Any]]) -> List[str]:
         rows = [

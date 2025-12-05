@@ -15,4 +15,3 @@ async def debug_docqa(file: UploadFile = File(...)):
 async def debug_classify(body: str):
     result = await classify(body)
     return result
-

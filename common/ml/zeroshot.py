@@ -9,6 +9,7 @@ LABELS = ["refund", "not_received", "warranty", "address_change", "how_to", "oth
 
 _zs_pipeline = None
 
+
 def _get_zs():
     global _zs_pipeline
     if _zs_pipeline is None:
@@ -21,11 +22,8 @@ def _get_zs():
 
 def classify_sync(text: str) -> Classification:
     if use_stub():
-        return Classification(
-            label="refund",
-            scores={"refund": 0.95, "other": 0.05},
-        )
-    
+        ...
+
     zs = _get_zs()
     result = zs(text, LABELS)
     labels = result["labels"]
@@ -35,6 +33,7 @@ def classify_sync(text: str) -> Classification:
         label=best,
         scores=dict(zip(labels, scores)),
     )
+
 
 async def classify(text: str) -> Classification:
     return await anyio.to_thread.run_sync(

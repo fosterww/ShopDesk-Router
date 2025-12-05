@@ -1,8 +1,9 @@
-from datetime import date
-from decimal import Decimal
-from typing import Any
-
+import io
+from pdf2image import convert_from_bytes
+from PIL import Image
 from transformers import pipeline
+
+from typing import Any
 
 from . import use_stub
 from .types import DocFields
@@ -10,6 +11,7 @@ from .types import DocFields
 import anyio
 
 _qa_pipeline = None
+
 
 def _get_pipeline():
     global _qa_pipeline
@@ -20,18 +22,30 @@ def _get_pipeline():
         )
     return _qa_pipeline
 
+
+def _load_pages(doc_bytes, mime):
+    if mime.startswith("application/pdf"):
+        return convert_from_bytes(doc_bytes)
+    img = Image.open(io.BytesIO(doc_bytes)).convert("RGB")
+    return [img]
+
+
 def extract_fields_sync(doc_bytes: bytes, mime: str) -> DocFields:
     if use_stub():
-        return DocFields(
-            order_id="A10023",
-            amount=Decimal("59.99"),
-            currency="USD",
-            order_date=date(2025, 11, 10),
-            sku="SKU-123",
-            confidence={"order_id": 0.98, "amount": 0.93},
-        )
-    
+        ...
+
     qa = _get_pipeline()
+    pages = _load_pages(doc_bytes, mime)
+    if not pages:
+        return DocFields(
+            order_id=None,
+            amount=None,
+            currency=None,
+            order_date=None,
+            sku=None,
+            confidence={},
+        )
+    page = pages[0]
     questions = {
         "order_id": "What is the order number?",
         "amount": "What is the total number?",
@@ -40,9 +54,9 @@ def extract_fields_sync(doc_bytes: bytes, mime: str) -> DocFields:
         "sku": "What is the SKU or item code?",
     }
 
-    answers = dict[str, Any] = {}
+    answers: dict[str, Any] = {}
     for field, q in questions.items():
-        out = qa(question=q, image=doc_bytes)[0]
+        out = qa(question=q, image=page)[0]
         answers[field] = out
 
     return DocFields(
@@ -51,10 +65,9 @@ def extract_fields_sync(doc_bytes: bytes, mime: str) -> DocFields:
         currency=None,
         order_date=None,
         sku=answers["sku"]["answer"],
-        confidence={
-            field: float(val.get("score", 0.0)) for field, val in answers.items()
-        },
+        confidence={k: float(v.get("score", 0.0)) for k, v in answers.items()},
     )
+
 
 async def extract_fields(doc_bytes: bytes, mime: str) -> DocFields:
     return await anyio.to_thread.run_sync(

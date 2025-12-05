@@ -19,11 +19,13 @@ class IngestUploadService:
             raise HTTPException(status_code=400, detail="At least one file is required")
 
         result = await session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO messages (source, subject, from_addr, body_text)
                 VALUES ('upload', NULL, NULL, :body_text)
                 RETURNING id
-            """),
+            """
+            ),
             {"body_text": body},
         )
         message_id = result.scalar_one()
@@ -41,7 +43,8 @@ class IngestUploadService:
             )
 
             result = await session.execute(
-                text("""
+                text(
+                    """
                      INSERT INTO attachments(
                      message_id, s3_key, mime, filename, size_bytes
                      )
@@ -49,33 +52,38 @@ class IngestUploadService:
                      :message_id, :s3_key, :mime, :filename, :size_bytes
                      )
                      RETURNING ID
-                """),
+                """
+                ),
                 {
                     "message_id": message_id,
                     "s3_key": s3_key,
                     "mime": file.content_type,
                     "filename": file.filename,
                     "size_bytes": size_bytes,
-                }
+                },
             )
             attachment_id = result.scalar_one()
 
-            attachments_out.append({
-                "id": str(attachment_id),
-                "filename": file.filename,
-                "mime": file.content_type,
-                "size_bytes": size_bytes,
-                "s3_key": s3_key,
-            })
+            attachments_out.append(
+                {
+                    "id": str(attachment_id),
+                    "filename": file.filename,
+                    "mime": file.content_type,
+                    "size_bytes": size_bytes,
+                    "s3_key": s3_key,
+                }
+            )
 
         await session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO events (ticket_id, type, payload)
                 VALUES (NULL, 'INGESTED', :payload ::jsonb)
-            """),
+            """
+            ),
             {
                 "payload": json.dumps({"message_id": str(message_id)}),
-            }
+            },
         )
 
         await session.commit()
@@ -84,5 +92,6 @@ class IngestUploadService:
             "message_id": str(message_id),
             "attachments": attachments_out,
         }
+
 
 service = IngestUploadService(storage=AttachmentStorage())

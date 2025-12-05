@@ -71,7 +71,8 @@ class MessageRepository:
                 """
                 select payload
                 from events
-                where message_id = :message_id and type = :type
+                where type = :type
+                  and payload->>'message_id' = :message_id
                 order by ts desc
                 limit 1
                 """

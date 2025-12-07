@@ -25,7 +25,10 @@ def _get_asr():
 
 def transcribe_sync(audio_bytes: bytes, mime: str) -> Transcript:
     if use_stub():
-        ...
+        return Transcript(
+            text="I need a refund for my order, please help.",
+            confidence=0.97,
+        )
 
     data, sr = sf.read(io.BytesIO(audio_bytes))
     asr = _get_asr()

@@ -154,8 +154,7 @@ app.conf.beat_schedule = {
 }
 app.conf.timezone = "UTC"
 
-# Ensure external task modules are imported so Celery registers their tasks
-import worker.jobs.gmail_poll  # noqa: E402,F401
+import worker.jobs.gmail_poll
 
 if __name__ == "__main__":
     res = ping.delay()

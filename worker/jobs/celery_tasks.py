@@ -11,6 +11,7 @@ from common.ml.types import Classification, DocFields
 from common.storage.s3 import AttachmentStorage
 from common.ml.vqa import is_damaged
 from common.norm.merger import merge_fields
+from common.clients import shopify, stripe
 
 
 async def _get_existing(repo: MessageRepository, message_id: str, type_: str):
@@ -377,8 +378,68 @@ async def _create_ticket(message_id: str) -> dict | None:
     async with SessionLocal() as session:
         repo = MessageRepository(session)
         existing = await _get_existing(repo, message_id, "TICKET_CREATED")
-        if existing:
+        if existing and existing.get("summary_payload"):
             return existing
+
+        classify_event = await _get_existing(repo, message_id, "CLASSIFY_DONE") or {}
+        summary_event = await _get_existing(repo, message_id, "SUMMARY_DONE") or {}
+        normalize_event = await _get_existing(repo, message_id, "NORMALIZE_DONE") or {}
+        selected_docqa = await _get_existing(repo, message_id, "DOCQA_SELECTED") or {}
+        message_row = (
+            await session.execute(
+                text("select from_addr from messages where id = :mid"),
+                {"mid": message_id}
+            )
+        ).first()
+        from_addr = message_row.from_addr if message_row else None
+
+        summary_text = summary_event.get("summary") if isinstance(summary_event, dict) else ""
+        route = classify_event.get("label") if isinstance(classify_event, dict) else None
+        normalized = normalize_event.get("normalized") if isinstance(normalize_event, dict) else None
+        doc_fields = selected_docqa.get("fields") if isinstance(selected_docqa, dict) else None
+
+        order_id = None
+        amount = None
+        if isinstance(normalized, dict):
+            order_id = normalized.get("order_id") or order_id
+            amount = normalized.get("amount")
+        if isinstance(doc_fields, dict):
+            order_id = order_id or doc_fields.get("order_id")
+
+        shopify_data = None
+        stripe_data = None
+        shopify_error = None
+        stripe_error = None
+        try:
+            if order_id:
+                shopify_data = await shopify.get_order(order_id)
+        except Exception as exc:
+            shopify_error = str(exc)
+
+        try:
+            amount_val = None
+            if amount is not None:
+                try:
+                    amount_val = float(str(amount).replace("$", "").replace(",", ""))
+                except Exception:
+                    amount_val = None
+            stripe_data = await stripe.find_charge(order_id=order_id, email=from_addr, amount=amount_val)
+        except Exception as exc:
+            stripe_error = str(exc)
+
+        summary_payload = {
+            "order_id": order_id,
+            "shopify": shopify_data,
+            "stripe": stripe_data,
+            "source": {
+                "shopify": "hit" if shopify_data else "miss",
+                "stripe": "hit" if stripe_data else "miss",
+            },
+            "errors": {
+                "shopify": shopify_error,
+                "stripe": stripe_error,
+            },
+        }
 
         ticket_row = (
             await session.execute(
@@ -387,43 +448,42 @@ async def _create_ticket(message_id: str) -> dict | None:
             )
         ).first()
         if ticket_row:
-            payload = {"message_id": str(message_id), "ticket_id": str(ticket_row.id)}
-            await repo.insert_event(
-                ticket_id=str(ticket_row.id),
-                message_id=str(message_id),
-                type_="TICKET_CREATED",
-                payload=payload,
+            ticket_id = str(ticket_row.id)
+            await session.execute(
+                text(
+                    """
+                    update tickets
+                    set route = coalesce(:route, route),
+                        summary = coalesce(:summary, summary),
+                        updated_at = :now
+                    where id = :tid
+                    """
+                ),
+                {
+                    "tid": ticket_row.id,
+                    "route": route,
+                    "summary": summary_text,
+                    "now": datetime.utcnow(),
+                },
             )
-            await session.commit()
-            return payload
-
-        classify_event = await _get_existing(repo, message_id, "CLASSIFY_DONE") or {}
-        summary_event = await _get_existing(repo, message_id, "SUMMARY_DONE") or {}
-        normalize_event = await _get_existing(repo, message_id, "NORMALIZE_DONE") or {}
-        selected_docqa = await _get_existing(repo, message_id, "DOCQA_SELECTED") or {}
-
-        summary_text = summary_event.get("summary") if isinstance(summary_event, dict) else ""
-        route = classify_event.get("label") if isinstance(classify_event, dict) else None
-        normalized = normalize_event.get("normalized") if isinstance(normalize_event, dict) else None
-        doc_fields = selected_docqa.get("fields") if isinstance(selected_docqa, dict) else None
-
-        result = await session.execute(
-            text(
-                """
-                insert into tickets(message_id, status, route, summary, created_at, updated_at)
-                values (:message_id, :status, :route, :summary, :now, :now)
-                returning id
-                """
-            ),
-            {
-                "message_id": message_id,
-                "status": "new",
-                "route": route,
-                "summary": summary_text,
-                "now": datetime.utcnow(),
-            },
-        )
-        ticket_id = str(result.scalar_one())
+        else:
+            result = await session.execute(
+                text(
+                    """
+                    insert into tickets(message_id, status, route, summary, created_at, updated_at)
+                    values (:message_id, :status, :route, :summary, :now, :now)
+                    returning id
+                    """
+                ),
+                {
+                    "message_id": message_id,
+                    "status": "new",
+                    "route": route,
+                    "summary": summary_text,
+                    "now": datetime.utcnow(),
+                },
+            )
+            ticket_id = str(result.scalar_one())
 
         payload = {
             "message_id": str(message_id),
@@ -432,6 +492,7 @@ async def _create_ticket(message_id: str) -> dict | None:
             "summary": summary_text,
             "normalized": normalized,
             "doc_fields": doc_fields,
+            "summary_payload": summary_payload,
         }
         await repo.insert_event(
             ticket_id=ticket_id,

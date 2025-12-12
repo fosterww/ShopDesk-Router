@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     gmail_label_ids: list[str] | str | None = None
     gmail_history_start: str | None = None
 
+    shopify_api_key: str | None = None
+    shopify_password: str | None = None
+    shopify_shop_domain: str | None = None
+    shopify_sandbox: bool = True
+
+    stripe_api_key: str | None = None
+    stripe_sandbox: bool = True
+
     @field_validator("gmail_label_ids", mode="before")
     @classmethod
     def split_gmail_labels(cls, v: Any) -> List[str]:

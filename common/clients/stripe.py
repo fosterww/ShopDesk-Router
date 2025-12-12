@@ -12,7 +12,9 @@ def _now() -> float:
     return time.time()
 
 
-def _fetch_charge_sync(order_id: Optional[str], email: Optional[str], amount: Optional[float]) -> Optional[Dict[str, Any]]:
+def _fetch_charge_sync(
+    order_id: Optional[str], email: Optional[str], amount: Optional[float]
+) -> Optional[Dict[str, Any]]:
     sandbox_env = os.getenv("STRIPE_SANDBOX", "1").lower()
     if sandbox_env in ("1", "true", "yes", "y"):
         return {
@@ -23,11 +25,11 @@ def _fetch_charge_sync(order_id: Optional[str], email: Optional[str], amount: Op
             "currency": "USD",
             "source": "sandbox",
         }
-    
+
     api_key = os.getenv("STRIPE_API_KEY")
     if not api_key:
         return None
-    
+
     stripe.api_key = api_key
 
     query_parts = []
@@ -48,7 +50,7 @@ def _fetch_charge_sync(order_id: Optional[str], email: Optional[str], amount: Op
 
     if not query_parts:
         return None
-    
+
     query = " AND ".join(query_parts)
 
     try:
@@ -56,7 +58,11 @@ def _fetch_charge_sync(order_id: Optional[str], email: Optional[str], amount: Op
         if resp.data:
             charge = resp.data[0]
             pm_details = getattr(charge, "payment_method_details", None)
-            card_brand = getattr(pm_details.card, "brand", None) if pm_details and getattr(pm_details, "card", None) else None
+            card_brand = (
+                getattr(pm_details.card, "brand", None)
+                if pm_details and getattr(pm_details, "card", None)
+                else None
+            )
             outcome = getattr(charge, "outcome", None)
             risk_score = getattr(outcome, "risk_score", None) if outcome else None
             return {
@@ -75,8 +81,9 @@ def _fetch_charge_sync(order_id: Optional[str], email: Optional[str], amount: Op
     return None
 
 
-
-async def find_charge(order_id: Optional[str] = None, email: Optional[str] = None, amount: Optional[float] = None) -> Optional[Dict[str, Any]]:
+async def find_charge(
+    order_id: Optional[str] = None, email: Optional[str] = None, amount: Optional[float] = None
+) -> Optional[Dict[str, Any]]:
     now = _now()
     cache_key = f"{order_id or ''}:{email or ''}:{amount or ''}"
     cached = _cache.get(cache_key)

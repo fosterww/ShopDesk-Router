@@ -3,6 +3,7 @@ from sqlalchemy import text
 from datetime import datetime
 
 from api.app.db import SessionLocal
+from api.app.config import settings
 from common.db.dao import MessageRepository
 from common.ml.asr import transcribe
 from common.ml.docqa import extract_fields
@@ -11,7 +12,7 @@ from common.ml.types import Classification, DocFields
 from common.storage.s3 import AttachmentStorage
 from common.ml.vqa import is_damaged
 from common.norm.merger import merge_fields
-from common.clients import shopify, stripe
+from common.clients import shopify, stripe, zendesk
 
 
 async def _get_existing(repo: MessageRepository, message_id: str, type_: str):
@@ -501,4 +502,60 @@ async def _create_ticket(message_id: str) -> dict | None:
             payload=payload,
         )
         await session.commit()
+
+        try:
+            custom_fields = []
+            if settings.zendesk_field_order_id and order_id:
+                custom_fields.append({"id": settings.zendesk_field_order_id, "value": order_id})
+            if settings.zendesk_field_amount and amount is not None:
+                try:
+                    amt_float = float(str(amount).replace("$", "").replace(",", ""))
+                except Exception:
+                    amt_float = None
+                if amt_float is not None:
+                    custom_fields.append({"id": settings.zendesk_field_amount, "value": amt_float})
+            if settings.zendesk_field_route and route:
+                custom_fields.append({"id": settings.zendesk_field_route, "value": route})
+            if settings.zendesk_field_priority:
+                priority_val = route if route in ("urgent", "high", "normal", "low") else "normal"
+                custom_fields.append({"id": settings.zendesk_field_priority, "value": priority_val})
+
+
+            attachments_url: list[str] = []
+            att_rows = (
+                await session.execute(
+                    text("select id, s3_key from attachments where message_id = :mid"),
+                    {"mid": message_id},
+                )
+            ).mappings().all()
+
+            storage = AttachmentStorage()
+            for r in att_rows:
+                try:
+                    url = await storage.presign(r["s3_key"])
+                    attachments_url.append(url)
+                except Exception:
+                    continue
+
+            comment_body = summary_text or ""
+            if attachments_url:
+                comment_body = f"{comment_body}\n\nAttachments:\n" + "\n".join(attachments_url)
+
+            zd_ticket_payload = {
+                "subject": f"{route or 'ticket'} for {order_id or ticket_id}",
+                "comment": {"body": comment_body, "public": False},
+                "custom_fields": custom_fields,
+                "priority": "normal",
+            }
+            external_id = await zendesk.create_ticket(zd_ticket_payload)
+            if external_id:
+                await session.execute(
+                    text("update tickets set external_id = :ext where id = :tid"),
+                    {"ext": external_id, "tid": ticket_id},
+                )
+                await session.commit()
+
+        except Exception:
+            pass
+
         return payload

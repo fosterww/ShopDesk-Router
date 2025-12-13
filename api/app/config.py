@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     stripe_api_key: str | None = None
     stripe_sandbox: bool = True
 
+    # Zendesk
+    zendesk_subdomain: str | None = None
+    zendesk_email: str | None = None
+    zendesk_api_token: str | None = None
+    zendesk_sandbox: bool = True
+    zendesk_field_order_id: str | None = None
+    zendesk_field_amount: str | None = None
+    zendesk_field_route: str | None = None
+    zendesk_field_priority: str | None = None
+
     @field_validator("gmail_label_ids", mode="before")
     @classmethod
     def split_gmail_labels(cls, v: Any) -> List[str]:

@@ -37,7 +37,6 @@ class Settings(BaseSettings):
     stripe_api_key: str | None = None
     stripe_sandbox: bool = True
 
-    # Zendesk
     zendesk_subdomain: str | None = None
     zendesk_email: str | None = None
     zendesk_api_token: str | None = None

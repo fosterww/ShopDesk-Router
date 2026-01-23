@@ -1,8 +1,8 @@
 import asyncio
-import os
 
 from celery import Celery
 
+from api.app.config import settings
 from worker.jobs.celery_tasks import (
     _asr_task,
     _docqa_task,
@@ -20,7 +20,7 @@ except Exception:
     Counter = None
 
 
-broker_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+broker_url = settings.redis_url
 app = Celery(
     "shopdesk",
     broker=broker_url,

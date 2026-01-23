@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 .env
-1venv/
+.venv/
 dist/
 build/
 .cache/
@@ -16,3 +16,4 @@ __dist__/
 .vscode/
 gmail-service-account.json
 .ruff_cache/
+*.egg-info/

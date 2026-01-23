@@ -17,7 +17,7 @@ def _base_url() -> Optional[str]:
 
 async def create_ticket(ticket: Dict[str, Any]) -> Optional[str]:
     if _sandbox_enabled():
-        return f"zd_stub_{ticket.get('subject','ticket')}"
+        return f"zd_stub_{ticket.get('subject', 'ticket')}"
 
     base = _base_url()
     email = os.getenv("ZENDESK_EMAIL")

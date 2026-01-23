@@ -7,18 +7,20 @@ from api.app.routers.ingest import router as ingest_router
 from api.app.routers.attachments import router as attachments_router
 from api.app.routers.debug_ml import router as debugml_router
 from api.app.routers.tickets import router as tickets_router
+from api.app.routers.admin import router as admin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_bucket()
     yield
 
-app = FastAPI(lifespan=lifespan, title="ShopDesk Router API", version="0.0.1")
+app = FastAPI(lifespan=lifespan, title="ShopDesk Router API", version="0.4.0")
 
 app.include_router(ingest_router)
 app.include_router(attachments_router)
 app.include_router(debugml_router)
 app.include_router(tickets_router)
+app.include_router(admin_router)
 
 @app.get("/health")
 def health():

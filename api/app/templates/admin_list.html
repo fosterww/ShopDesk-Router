@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin Tickets</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; color: #1d1d1f; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e0e0e0; padding: 8px; text-align: left; }
+    th { background: #f8f8f8; }
+    tr:hover { background: #f5f8ff; }
+    .filters input { margin-right: 8px; padding: 6px 8px; }
+    .pill { padding: 2px 8px; border-radius: 8px; background: #eef; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Triage Tickets</h2>
+    <form class="filters" method="get">
+      <input type="text" name="route" placeholder="route" value="{{ filter_route }}">
+      <input type="text" name="status" placeholder="status" value="{{ filter_status }}">
+      <button type="submit">Filter</button>
+    </form>
+  </header>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Route</th>
+        <th>Status</th>
+        <th>Updated</th>
+        <th>Summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tickets %}
+      <tr>
+        <td><a href="/admin/tickets/{{ t.id }}">{{ t.id }}</a></td>
+        <td><span class="pill">{{ t.route or '-' }}</span></td>
+        <td>{{ t.status or '-' }}</td>
+        <td>{{ t.updated_at }}</td>
+        <td>{{ t.summary or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

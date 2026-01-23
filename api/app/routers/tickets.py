@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import select
 
 from api.app.db import get_db
 from common.db.dao import MessageRepository
+from common.db.schemas import tickets
 from common.clients import zendesk
 
 
@@ -17,12 +18,14 @@ class ApproveReplyPayload(BaseModel):
 
 @router.post("/{ticket_id}/approve-reply")
 async def approve_reply(ticket_id: str, payload: ApproveReplyPayload, db: AsyncSession = Depends(get_db)):
-    row = (
-        await db.execute(
-        text("select id, external_id, message_id from tickets where id = :tid"),
-        {"tid": ticket_id},
-        )
-    ).first()
+    stmt = select(
+        tickets.c.id, 
+        tickets.c.external_id, 
+        tickets.c.message_id
+    ).where(tickets.c.id == ticket_id)
+
+    result = await db.execute(stmt)
+    row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
